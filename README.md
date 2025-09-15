@@ -4,20 +4,24 @@
 
 ## Install
 ```r
-install.packages("pak")         # once
-pak::pak("ORG_OR_USER/cramerdb")
-# or: remotes::install_github("ORG_OR_USER/cramerdb")
+# one-time: install pak
+install.packages("pak")
+
+# install cramerdb from GitHub
+pak::pak("ConnerSwineford/CramerDB_R")
+
+# load it
 library(cramerdb)
 ```
 
 ## Usage
 ```r
-# 1) Read (auto-paginates; returns tibble or sf)
+# 1) Read 
 visits <- fetch("http://172.18.10.103:8000/api/veg-rec/visit/")
 plots  <- fetch("http://172.18.10.103:8000/api/veg-rec/plot/")  # sf with geom
 
-# 2) Write via API (no DB connection)
-tok <- "Token XXXXX"  s
+# 2) Security/Authetication (not implemented yet)
+tok <- "Token XXXXX" 
 hdr <- list(Authorization = tok)
 
 # create new rows
@@ -25,6 +29,7 @@ create("http://172.18.10.103:8000/api/veg-rec/visit/", visits_new, headers = hdr
 
 # update existing rows by id
 update("http://172.18.10.103:8000/api/veg-rec/visit/", visits_update, headers = hdr)
-```
+
 # upsert (update if id exists, else create)
 upsert("http://172.18.10.103:8000/api/veg-rec/visit/", visits_mixed, headers = hdr)
+```
