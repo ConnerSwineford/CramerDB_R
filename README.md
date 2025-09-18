@@ -5,11 +5,11 @@
 ## Install
 ```r
 # one-time: install pak
-install.packages("pak")
-
-# install cramerdb from GitHub
 options(pkgType = "binary")
 install.packages("pak", type = "binary")
+
+# install cramerdb from GitHub
+pak::pak("ConnerSwineford/cramerdb")
 
 # load it
 library(cramerdb)
