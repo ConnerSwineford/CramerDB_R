@@ -26,9 +26,30 @@ fetch <- function(url, headers = list(), as_sf = TRUE) {
   req
 }
 
-.fetch_once <- function(url, headers = list()) {
+# robust query adder without tidy-eval
+.add_query <- function(req, query) {
+  if (length(query) > 0) {
+    req <- do.call(httr2::req_url_query, c(list(req), query))
+  }
+  req
+}
+
+# Does the URL already have a given query parameter name? (case-insensitive)
+.has_query_param <- function(url, name) {
+  # match ?name= or &name= or terminal ?name / &name
+  patt <- paste0("(?i)([?&])", name, "(=|&|$)")
+  grepl(patt, url, perl = TRUE)
+}
+
+.fetch_once <- function(url, headers = list(), labels = TRUE) {
   req <- httr2::request(url)
   req <- .add_headers(req, headers)
+  
+  # Add labels=1 by default unless caller disabled it or URL already has labels
+  if (isTRUE(labels) && !.has_query_param(url, "labels")) {
+    req <- .add_query(req, list(labels = "1"))
+  }
+  
   res <- httr2::req_perform(req)
   httr2::resp_check_status(res)
   httr2::resp_body_json(res, simplifyVector = FALSE)
@@ -36,14 +57,15 @@ fetch <- function(url, headers = list(), as_sf = TRUE) {
 
 # Follow DRF pagination if present.
 # NOTE: never use $next (reserved word). Use [["next"]].
-.fetch_pages <- function(url, headers = list()) {
-  body <- .fetch_once(url, headers)
+.fetch_pages <- function(url, headers = list(), labels = TRUE) {
+  body <- .fetch_once(url, headers, labels = labels)
   # DRF-style page
   if (is.list(body) && !is.null(body[["results"]])) {
     pages <- list(body)
     nxt <- body[["next"]]
     while (!is.null(nxt) && is.character(nxt) && nzchar(nxt)) {
-      pg <- .fetch_once(nxt, headers)
+      # For safety, also ensure later pages carry labels unless they already have it.
+      pg <- .fetch_once(nxt, headers, labels = labels)
       pages <- c(pages, list(pg))
       nxt <- pg[["next"]]
     }
