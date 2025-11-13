@@ -10,6 +10,9 @@
 #' @export
 create <- function(url, data, headers = list(), id_col = "id",
                    style = c("auto", "plain", "feature"), chunk_size = 200L) {
+  # inject Authorization header from stored token (if any)
+  headers <- .auth_headers(headers)
+  
   style <- match.arg(style)
   style <- .pick_style(style, data)
   rows  <- .as_row_list(data, id_col)
@@ -19,10 +22,13 @@ create <- function(url, data, headers = list(), id_col = "id",
   invisible(TRUE)
 }
 
+
 #' Update records via API (PATCH by id)
 #' @export
 update <- function(url, data, headers = list(), id_col = "id",
                    style = c("auto", "plain", "feature"), chunk_size = 200L) {
+  headers <- .auth_headers(headers)
+  
   style <- match.arg(style)
   style <- .pick_style(style, data)
   if (!id_col %in% names(data)) stop("update(): '", id_col, "' column is required.")
@@ -44,6 +50,8 @@ update <- function(url, data, headers = list(), id_col = "id",
 #' @export
 upsert <- function(url, data, headers = list(), id_col = "id",
                    style = c("auto", "plain", "feature"), chunk_size = 200L) {
+  headers <- .auth_headers(headers)
+  
   style <- match.arg(style)
   style <- .pick_style(style, data)
   rows <- .as_row_list(data, id_col)

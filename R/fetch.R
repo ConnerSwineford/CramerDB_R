@@ -12,6 +12,8 @@
 #' @export
 
 fetch <- function(url, headers = list(), as_sf = TRUE) {
+  headers <- .auth_headers(headers)
+  
   pages <- .fetch_pages(url, headers)
   .normalize_pages_to_df(pages, as_sf = as_sf)
 }
