@@ -152,15 +152,29 @@ fetch <- function(url, headers = list(), as_sf = TRUE) {
     
     # Otherwise: plain objects → data frame
     rows <- purrr::map(items, function(x) {
-      x <- .nulls_to_na(x)
-      
-      # normalize notes to character so bind_rows() doesn’t see mixed types
-      if (!is.null(x$notes) && is.logical(x$notes)) {
-        x$notes <- as.character(x$notes)
-      }
-      
-      tibble::as_tibble(x)
+      tibble::as_tibble(.nulls_to_na(x))
     })
+    
+    # --- harmonize column types across pages ---------------------------
+    # If a column is sometimes <character> and sometimes <logical>,
+    # coerce the logical ones to character so bind_rows() is happy.
+    all_cols <- unique(unlist(purrr::map(rows, names)))
+    
+    for (nm in all_cols) {
+      classes <- purrr::map_chr(rows, function(df) {
+        if (!nm %in% names(df)) return(NA_character_)
+        class(df[[nm]])[1]
+      })
+      
+      if ("character" %in% classes && "logical" %in% classes) {
+        rows <- purrr::map(rows, function(df) {
+          if (nm %in% names(df) && is.logical(df[[nm]])) {
+            df[[nm]] <- as.character(df[[nm]])
+          }
+          df
+        })
+      }
+    }
     
     return(dplyr::bind_rows(!!!rows))
   }
