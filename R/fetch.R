@@ -151,8 +151,15 @@ fetch <- function(url, headers = list(), as_sf = TRUE) {
 
     # Otherwise: plain objects → data frame
     rows <- purrr::map(items, function(x) {
-      tibble::as_tibble(.nulls_to_na(x))
+      x <- .nulls_to_na(x)
+      
+      # normalize notes column type
+      if (!is.null(x$notes) && is.logical(x$notes)) {
+        x$notes <- as.character(x$notes)
+      
+      tibble::as_tibble(x)
     })
+    
     return(dplyr::bind_rows(!!!rows))
   }
 

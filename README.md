@@ -10,7 +10,7 @@ options(pkgType = "binary")
 install.packages("pak", type = "binary")
 
 # install cramerdb from GitHub
-pak::pak("ConnerSwineford/cramerdb")
+pak::pak("ConnerSwineford/CramerDb_R")
 
 # load it
 library(cramerdb)
