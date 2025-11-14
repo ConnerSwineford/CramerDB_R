@@ -135,34 +135,36 @@ fetch <- function(url, headers = list(), as_sf = TRUE) {
     #   b) a single FeatureCollection
     #   c) list of Feature objects
     all_results <- purrr::map(pages, ~ .x[["results"]])
-
+    
     # If results[[1]] is a FeatureCollection object
     if (is.list(all_results[[1]]) && !is.null(all_results[[1]][["type"]]) &&
         identical(all_results[[1]][["type"]], "FeatureCollection")) {
-      feats <- purrr::map(all_results, ~ .x[["features"]] %||% list()) |> purrr::flatten()
+      feats <- purrr::map(all_results, ~ .x[["features"]] %||% list()) |>
+        purrr::flatten()
       return(.features_to_tbl(feats, as_sf = as_sf))
     }
-
+    
     # If results is a list of Features on each page
     items <- purrr::flatten(all_results)
     if (length(items) > 0 && all(purrr::map_lgl(items, .is_feature))) {
       return(.features_to_tbl(items, as_sf = as_sf))
     }
-
+    
     # Otherwise: plain objects → data frame
     rows <- purrr::map(items, function(x) {
       x <- .nulls_to_na(x)
       
-      # normalize notes column type
+      # normalize notes to character so bind_rows() doesn’t see mixed types
       if (!is.null(x$notes) && is.logical(x$notes)) {
         x$notes <- as.character(x$notes)
+      }
       
       tibble::as_tibble(x)
     })
     
     return(dplyr::bind_rows(!!!rows))
   }
-
+  
   # Case 2: Single-page FeatureCollection
   if (length(pages) == 1 &&
       is.list(pages[[1]]) &&
@@ -170,7 +172,7 @@ fetch <- function(url, headers = list(), as_sf = TRUE) {
     feats <- pages[[1]][["features"]] %||% list()
     return(.features_to_tbl(feats, as_sf = as_sf))
   }
-
+  
   # Case 3: Single-page array (Feature list or plain list)
   if (length(pages) == 1 && is.list(pages[[1]]) &&
       (is.null(names(pages[[1]])) || all(names(pages[[1]]) == ""))) {
@@ -181,7 +183,7 @@ fetch <- function(url, headers = list(), as_sf = TRUE) {
     rows <- purrr::map(items, tibble::as_tibble)
     return(dplyr::bind_rows(!!!rows))
   }
-
+  
   # Case 4: Single object → tibble(1 row)
   tibble::as_tibble(pages[[1]])
 }
