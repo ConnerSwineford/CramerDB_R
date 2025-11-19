@@ -12,16 +12,16 @@
 #' @examples
 #' \dontrun{
 #' # List top-level endpoints
-#' list()
+#' endpoints()
 #'
 #' # List endpoints for a specific section
-#' list("seine")
-#' list("biology")
+#' endpoints("seine")
+#' endpoints("biology")
 #'
 #' # Equivalent to:
-#' list("biology/some-sub-path")
+#' endpoints("biology/some-sub-path")
 #' }
-list <- function(path = NULL, base_url = "https://cramerdb.com/api/", headers = list()) {
+endpoints <- function(path = NULL, base_url = "https://cramerdb.com/api/", headers = list()) {
   headers <- .auth_headers(headers)
 
   # Build the full URL
