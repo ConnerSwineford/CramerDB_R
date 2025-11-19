@@ -48,13 +48,15 @@ fetch <- function(url, headers = list(), as_sf = TRUE, base_url = "https://crame
 
 .fetch_once <- function(url, headers = list(), labels = TRUE) {
   req <- httr2::request(url)
+  # Add Accept header to ensure JSON response
+  req <- httr2::req_headers(req, Accept = "application/json")
   req <- .add_headers(req, headers)
-  
+
   # Add labels=1 by default unless caller disabled it or URL already has labels
   if (isTRUE(labels) && !.has_query_param(url, "labels")) {
     req <- .add_query(req, list(labels = "1"))
   }
-  
+
   res <- httr2::req_perform(req)
   httr2::resp_check_status(res)
   httr2::resp_body_json(res, simplifyVector = FALSE)
