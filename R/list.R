@@ -30,6 +30,8 @@ endpoints <- function(path = NULL, base_url = "https://cramerdb.com/api/", heade
   # Fetch the endpoint info
   tryCatch({
     req <- httr2::request(url)
+    # Add Accept header to ensure JSON response
+    req <- httr2::req_headers(req, Accept = "application/json")
     req <- .add_headers(req, headers)
     res <- httr2::req_perform(req)
     httr2::resp_check_status(res)
@@ -92,6 +94,8 @@ whoami <- function(base_url = "https://cramerdb.com/api/", headers = list()) {
   # Fetch the root endpoint info
   tryCatch({
     req <- httr2::request(base_url)
+    # Add Accept header to ensure JSON response
+    req <- httr2::req_headers(req, Accept = "application/json")
     req <- .add_headers(req, headers)
     res <- httr2::req_perform(req)
     httr2::resp_check_status(res)
