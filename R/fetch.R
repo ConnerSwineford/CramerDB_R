@@ -5,15 +5,18 @@
 #' DRF `results`). If point coordinates are present, it returns an `sf`
 #' tibble with EPSG:4326; otherwise a plain `tibble`.
 #'
-#' @param url Character. First page URL (DRF or non-paginated).
+#' @param url Character. Full URL or relative path (e.g., "seine/event/" or "https://cramerdb.com/api/seine/event/").
+#'   Relative paths are prepended with base_url.
 #' @param headers Named list of HTTP headers (e.g., list(Authorization = "Token xxx")).
 #' @param as_sf Logical. If `TRUE` (default), try to return sf when geometry exists.
+#' @param base_url Character. Base API URL (default: "https://cramerdb.com/api/")
 #' @return A `tibble` or an `sf` tibble.
 #' @export
 
-fetch <- function(url, headers = list(), as_sf = TRUE) {
+fetch <- function(url, headers = list(), as_sf = TRUE, base_url = "https://cramerdb.com/api/") {
   headers <- .auth_headers(headers)
-  
+  url <- .normalize_url(url, base_url)
+
   pages <- .fetch_pages(url, headers)
   .normalize_pages_to_df(pages, as_sf = as_sf)
 }
@@ -203,3 +206,22 @@ fetch <- function(url, headers = list(), as_sf = TRUE) {
 }
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
+
+# Normalize URL: if relative path, prepend base_url
+.normalize_url <- function(url, base_url = "https://cramerdb.com/api/") {
+  # Check if URL is already absolute (has scheme)
+  if (grepl("^https?://", url)) {
+    return(url)
+  }
+
+  # Relative path - prepend base_url
+  # Ensure base_url ends with /
+  if (!grepl("/$", base_url)) {
+    base_url <- paste0(base_url, "/")
+  }
+
+  # Remove leading slash from path if present
+  url <- gsub("^/+", "", url)
+
+  paste0(base_url, url)
+}

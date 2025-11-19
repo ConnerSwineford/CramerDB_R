@@ -1,18 +1,21 @@
 # -- Public API ---------------------------------------------------------------
 
 #' Create new records via API (POST)
-#' @param url Endpoint like "http://host/api/veg-rec/visit/" (collection URL)
+#' @param url Endpoint - full URL or relative path (e.g., "seine/event/" or "https://cramerdb.com/api/seine/event/")
 #' @param data data.frame or sf tibble
 #' @param headers named list of HTTP headers (e.g., list(Authorization = "Token ..."))
 #' @param id_col primary key col (default "id"). If missing or NA, server may assign.
 #' @param style "auto", "plain", or "feature" (GeoJSON Feature). "auto" picks "feature" for sf, else "plain".
 #' @param chunk_size number of rows per request batch (each row is one request; chunking controls progress/messages)
+#' @param base_url Character. Base API URL (default: "https://cramerdb.com/api/")
 #' @export
 create <- function(url, data, headers = list(), id_col = "id",
-                   style = c("auto", "plain", "feature"), chunk_size = 200L) {
+                   style = c("auto", "plain", "feature"), chunk_size = 200L,
+                   base_url = "https://cramerdb.com/api/") {
   # inject Authorization header from stored token (if any)
   headers <- .auth_headers(headers)
-  
+  url <- .normalize_url(url, base_url)
+
   style <- match.arg(style)
   style <- .pick_style(style, data)
   rows  <- .as_row_list(data, id_col)
@@ -24,11 +27,20 @@ create <- function(url, data, headers = list(), id_col = "id",
 
 
 #' Update records via API (PATCH by id)
+#' @param url Endpoint - full URL or relative path (e.g., "seine/event/" or "https://cramerdb.com/api/seine/event/")
+#' @param data data.frame or sf tibble
+#' @param headers named list of HTTP headers
+#' @param id_col primary key col (default "id")
+#' @param style "auto", "plain", or "feature"
+#' @param chunk_size number of rows per request batch
+#' @param base_url Character. Base API URL (default: "https://cramerdb.com/api/")
 #' @export
 update <- function(url, data, headers = list(), id_col = "id",
-                   style = c("auto", "plain", "feature"), chunk_size = 200L) {
+                   style = c("auto", "plain", "feature"), chunk_size = 200L,
+                   base_url = "https://cramerdb.com/api/") {
   headers <- .auth_headers(headers)
-  
+  url <- .normalize_url(url, base_url)
+
   style <- match.arg(style)
   style <- .pick_style(style, data)
   if (!id_col %in% names(data)) stop("update(): '", id_col, "' column is required.")
@@ -47,15 +59,24 @@ update <- function(url, data, headers = list(), id_col = "id",
 }
 
 #' Upsert records via API (PATCH if id present & exists; otherwise POST)
+#' @param url Endpoint - full URL or relative path (e.g., "seine/event/" or "https://cramerdb.com/api/seine/event/")
+#' @param data data.frame or sf tibble
+#' @param headers named list of HTTP headers
+#' @param id_col primary key col (default "id")
+#' @param style "auto", "plain", or "feature"
+#' @param chunk_size number of rows per request batch
+#' @param base_url Character. Base API URL (default: "https://cramerdb.com/api/")
 #' @export
 upsert <- function(url, data, headers = list(), id_col = "id",
-                   style = c("auto", "plain", "feature"), chunk_size = 200L) {
+                   style = c("auto", "plain", "feature"), chunk_size = 200L,
+                   base_url = "https://cramerdb.com/api/") {
   headers <- .auth_headers(headers)
-  
+  url <- .normalize_url(url, base_url)
+
   style <- match.arg(style)
   style <- .pick_style(style, data)
   rows <- .as_row_list(data, id_col)
-  
+
   purrr::walk(.chunk_indices(NROW(data), chunk_size), function(ix) {
     purrr::walk(ix, function(i) {
       row <- rows[[i]]
@@ -201,4 +222,23 @@ upsert <- function(url, data, headers = list(), id_col = "id",
   if (is.data.frame(x)) return(x)
   if (!is.list(x)) return(if (is.null(x)) NA else x)
   purrr::modify(x, ~ if (is.null(.x)) NA else .x)
+}
+
+# Normalize URL: if relative path, prepend base_url
+.normalize_url <- function(url, base_url = "https://cramerdb.com/api/") {
+  # Check if URL is already absolute (has scheme)
+  if (grepl("^https?://", url)) {
+    return(url)
+  }
+
+  # Relative path - prepend base_url
+  # Ensure base_url ends with /
+  if (!grepl("/$", base_url)) {
+    base_url <- paste0(base_url, "/")
+  }
+
+  # Remove leading slash from path if present
+  url <- gsub("^/+", "", url)
+
+  paste0(base_url, url)
 }
