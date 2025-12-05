@@ -28,9 +28,9 @@ install_gum()
 That's it! The function detects your operating system (macOS, Linux, or Windows) and installs [gum CLI](https://github.com/charmbracelet/gum) automatically.
 
 **What you get with gum:**
-- 🎨 Azure blue styled headers and output
+- 🎨 Color styled headers and output
 - 📊 Real-time progress bars for fetch pagination and bulk operations
-- ✓ Success/warning/error indicators with colors
+- ✓ Success/warning/error indicators
 - 🎯 Beautiful formatted tables for endpoints
 
 **Check installation:**
@@ -46,14 +46,16 @@ check_gum()  # Verify gum is working
 # 1. Set your authentication token
 set_token("your_api_token_here")
 
-# 2. Verify authentication
-whoami()
-# With gum installed, you'll see:
-# CramerDB Authentication Status
-# ──────────────────────────────
+# 2. Quick health check before running operations
+test_connection()
+# Testing CramerDB Connection
+# ──────────────────────────
 #
-#   Authenticated:  YES
-#   User:           john.doe
+#   Checking network connectivity...      ✓ OK
+#   Verifying authentication...           ✓ Authenticated
+#   User: john.doe
+#
+# ✓ Connection test passed!
 
 # 3. Explore available endpoints
 endpoints()
@@ -95,17 +97,20 @@ set_token("YOUR-API-TOKEN")
 
 This stores the token in R's session options, so you don't need to pass it with every request.
 
-### Check Authentication Status
+### Connection Testing
 
-Verify you're authenticated and see which user you're logged in as:
+Verify authentication:
 
 ```r
-whoami()
-# CramerDB Authentication Status
-# ==============================
+test_connection()
+# Testing CramerDB Connection
+# ──────────────────────────
 #
-# Authenticated: YES
-# User: john.doe
+#   Checking network connectivity...      ✓ OK
+#   Verifying authentication...           ✓ Authenticated
+#   User: john.doe
+#
+# ✓ Connection test passed!
 ```
 
 ### Retrieve Your Token
@@ -345,22 +350,6 @@ fetch("seine/event/")  # Shows progress bars and messages
 
 # Default: verbose in interactive sessions, quiet in scripts
 # (automatically detected via interactive())
-```
-
-### 🔍 Connection Testing
-
-Quick health check before running operations:
-
-```r
-test_connection()
-# Testing CramerDB Connection
-# ──────────────────────────
-#
-#   Checking network connectivity...      ✓ OK
-#   Verifying authentication...           ✓ Authenticated
-#   User: john.doe
-#
-# ✓ Connection test passed!
 ```
 
 ### 🎯 Interactive Endpoint Browser
