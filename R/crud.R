@@ -8,10 +8,11 @@
 #' @param style "auto", "plain", or "feature" (GeoJSON Feature). "auto" picks "feature" for sf, else "plain".
 #' @param chunk_size number of rows per request batch (each row is one request; chunking controls progress/messages)
 #' @param base_url Character. Base API URL (default: "https://cramerdb.com/api/")
+#' @param dry_run Logical. If TRUE, show what would be sent without actually sending. Useful for validation.
 #' @export
 create <- function(url, data, headers = list(), id_col = "id",
                    style = c("auto", "plain", "feature"), chunk_size = 200L,
-                   base_url = "https://cramerdb.com/api/") {
+                   base_url = "https://cramerdb.com/api/", dry_run = FALSE) {
   # inject Authorization header from stored token (if any)
   headers <- .auth_headers(headers)
   url <- .normalize_url(url, base_url)
@@ -19,9 +20,35 @@ create <- function(url, data, headers = list(), id_col = "id",
   style <- match.arg(style)
   style <- .pick_style(style, data)
   rows  <- .as_row_list(data, id_col)
-  purrr::walk(.chunk_indices(NROW(data), chunk_size), function(ix) {
-    purrr::walk(ix, function(i) .post_one(url, rows[[i]], headers, style))
+  total_rows <- NROW(data)
+
+  # Dry run mode
+  if (dry_run) {
+    .show_dry_run("CREATE", url, rows, total_rows)
+    return(invisible(NULL))
+  }
+
+  # Show progress if multiple rows
+  if (total_rows > 1 && .is_verbose()) {
+    cat(.gum_style("Creating records:", color = .gum_colors$primary),
+        sprintf(" %d rows\n", total_rows))
+  }
+
+  current <- 0
+  purrr::walk(.chunk_indices(total_rows, chunk_size), function(ix) {
+    purrr::walk(ix, function(i) {
+      .post_one(url, rows[[i]], headers, style)
+      current <<- current + 1
+      if (total_rows > 1 && .is_verbose()) {
+        .gum_progress(current, total_rows, "Creating")
+      }
+    })
   })
+
+  if (total_rows > 1 && .is_verbose()) {
+    .gum_success(sprintf("Created %d records successfully", total_rows))
+  }
+
   invisible(TRUE)
 }
 
@@ -34,27 +61,63 @@ create <- function(url, data, headers = list(), id_col = "id",
 #' @param style "auto", "plain", or "feature"
 #' @param chunk_size number of rows per request batch
 #' @param base_url Character. Base API URL (default: "https://cramerdb.com/api/")
+#' @param dry_run Logical. If TRUE, show what would be sent without actually sending. Useful for validation.
 #' @export
 update <- function(url, data, headers = list(), id_col = "id",
                    style = c("auto", "plain", "feature"), chunk_size = 200L,
-                   base_url = "https://cramerdb.com/api/") {
+                   base_url = "https://cramerdb.com/api/", dry_run = FALSE) {
   headers <- .auth_headers(headers)
   url <- .normalize_url(url, base_url)
 
   style <- match.arg(style)
   style <- .pick_style(style, data)
   if (!id_col %in% names(data)) stop("update(): '", id_col, "' column is required.")
-  if (any(is.na(data[[id_col]]) | data[[id_col]] == "")) {
-    warning("update(): rows with missing '", id_col, "' will be skipped.")
-  }
+
+  # Count valid rows
+  valid_rows <- sum(!is.na(data[[id_col]]) & data[[id_col]] != "")
+  total_rows <- NROW(data)
+
   rows <- .as_row_list(data, id_col)
-  purrr::walk(.chunk_indices(NROW(data), chunk_size), function(ix) {
+
+  # Dry run mode
+  if (dry_run) {
+    if (valid_rows < total_rows) {
+      .gum_warning(sprintf("update(): %d rows with missing '%s' will be skipped",
+                           total_rows - valid_rows, id_col))
+    }
+    .show_dry_run("UPDATE", url, rows, valid_rows)
+    return(invisible(NULL))
+  }
+
+  if (valid_rows < total_rows && .is_verbose()) {
+    .gum_warning(sprintf("update(): %d rows with missing '%s' will be skipped",
+                         total_rows - valid_rows, id_col))
+  }
+
+  # Show progress if multiple rows
+  if (total_rows > 1 && .is_verbose()) {
+    cat(.gum_style("Updating records:", color = .gum_colors$primary),
+        sprintf(" %d rows\n", total_rows))
+  }
+
+  current <- 0
+  purrr::walk(.chunk_indices(total_rows, chunk_size), function(ix) {
     purrr::walk(ix, function(i) {
       rid <- rows[[i]][[id_col]]
-      if (is.null(rid) || is.na(rid) || !nzchar(as.character(rid))) return(invisible(NULL))
-      .patch_one(.join_url(url, rid), rows[[i]], headers, style)
+      if (!is.null(rid) && !is.na(rid) && nzchar(as.character(rid))) {
+        .patch_one(.join_url(url, rid), rows[[i]], headers, style)
+      }
+      current <<- current + 1
+      if (total_rows > 1 && .is_verbose()) {
+        .gum_progress(current, total_rows, "Updating")
+      }
     })
   })
+
+  if (total_rows > 1 && .is_verbose()) {
+    .gum_success(sprintf("Updated %d records successfully", valid_rows))
+  }
+
   invisible(TRUE)
 }
 
@@ -66,30 +129,64 @@ update <- function(url, data, headers = list(), id_col = "id",
 #' @param style "auto", "plain", or "feature"
 #' @param chunk_size number of rows per request batch
 #' @param base_url Character. Base API URL (default: "https://cramerdb.com/api/")
+#' @param dry_run Logical. If TRUE, show what would be sent without actually sending. Useful for validation.
 #' @export
 upsert <- function(url, data, headers = list(), id_col = "id",
                    style = c("auto", "plain", "feature"), chunk_size = 200L,
-                   base_url = "https://cramerdb.com/api/") {
+                   base_url = "https://cramerdb.com/api/", dry_run = FALSE) {
   headers <- .auth_headers(headers)
   url <- .normalize_url(url, base_url)
 
   style <- match.arg(style)
   style <- .pick_style(style, data)
   rows <- .as_row_list(data, id_col)
+  total_rows <- NROW(data)
 
-  purrr::walk(.chunk_indices(NROW(data), chunk_size), function(ix) {
+  # Dry run mode
+  if (dry_run) {
+    .show_dry_run("UPSERT", url, rows, total_rows)
+    return(invisible(NULL))
+  }
+
+  # Show progress if multiple rows
+  if (total_rows > 1 && .is_verbose()) {
+    cat(.gum_style("Upserting records:", color = .gum_colors$primary),
+        sprintf(" %d rows\n", total_rows))
+  }
+
+  current <- 0
+  created <- 0
+  updated <- 0
+
+  purrr::walk(.chunk_indices(total_rows, chunk_size), function(ix) {
     purrr::walk(ix, function(i) {
       row <- rows[[i]]
       rid <- row[[id_col]]
       if (!is.null(rid) && !is.na(rid) && nzchar(as.character(rid))) {
         # Try PATCH; if 404, POST as create
         ok <- .try_patch(.join_url(url, rid), row, headers, style)
-        if (!ok) .post_one(url, row, headers, style)
+        if (ok) {
+          updated <<- updated + 1
+        } else {
+          .post_one(url, row, headers, style)
+          created <<- created + 1
+        }
       } else {
         .post_one(url, row, headers, style)
+        created <<- created + 1
+      }
+      current <<- current + 1
+      if (total_rows > 1 && .is_verbose()) {
+        .gum_progress(current, total_rows, "Upserting")
       }
     })
   })
+
+  if (total_rows > 1 && .is_verbose()) {
+    .gum_success(sprintf("Upserted %d records (created: %d, updated: %d)",
+                         total_rows, created, updated))
+  }
+
   invisible(TRUE)
 }
 
@@ -241,4 +338,48 @@ upsert <- function(url, data, headers = list(), id_col = "id",
   url <- gsub("^/+", "", url)
 
   paste0(base_url, url)
+}
+
+# Check if verbose output is enabled
+.is_verbose <- function() {
+  verbose <- getOption("cramerdb.verbose", default = NULL)
+  if (is.null(verbose)) {
+    # Default: verbose if interactive, quiet otherwise
+    return(interactive())
+  }
+  isTRUE(verbose)
+}
+
+# Show dry-run preview
+.show_dry_run <- function(operation, url, rows, total_rows) {
+  .gum_header(sprintf("DRY RUN: %s Preview", operation))
+
+  cat(.gum_style("Operation:", color = .gum_colors$primary, bold = TRUE), " ", operation, "\n", sep = "")
+  cat(.gum_style("Endpoint:", color = .gum_colors$primary, bold = TRUE), "  ", url, "\n", sep = "")
+  cat(.gum_style("Records:", color = .gum_colors$primary, bold = TRUE), "   ", total_rows, "\n\n", sep = "")
+
+  # Show first few records
+  preview_count <- min(3, total_rows)
+
+  cat(.gum_style("Preview of first ", preview_count, " record(s):",
+                 color = .gum_colors$muted), "\n", sep = "")
+
+  for (i in 1:preview_count) {
+    cat("\n", .gum_style(sprintf("Record %d:", i), color = .gum_colors$primary), "\n", sep = "")
+    # Pretty print JSON
+    json_str <- jsonlite::toJSON(rows[[i]], auto_unbox = TRUE, pretty = TRUE, digits = NA, null = "null")
+    cat(.gum_style(json_str, color = .gum_colors$muted), "\n", sep = "")
+  }
+
+  if (total_rows > preview_count) {
+    cat("\n", .gum_style(sprintf("... and %d more record(s)", total_rows - preview_count),
+                         color = .gum_colors$muted), "\n", sep = "")
+  }
+
+  cat("\n")
+  .gum_warning(sprintf("This was a DRY RUN - no data was sent to the API"))
+  cat("  Remove ", .gum_style("dry_run = TRUE", color = .gum_colors$primary), " to execute\n", sep = "")
+  cat("\n")
+
+  invisible(NULL)
 }

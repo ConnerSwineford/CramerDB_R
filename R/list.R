@@ -51,21 +51,33 @@ endpoints <- function(path = NULL, base_url = "https://cramerdb.com/api/", heade
       endpoint_names <- names(endpoints)
       endpoint_names <- endpoint_names[order(endpoint_names)]
 
-      cat(sprintf("Available endpoints at %s:\n", url))
+      # Display header with gum styling
+      .gum_header(sprintf("Available endpoints at %s", url))
+
+      # Display each endpoint with styling
       for (name in endpoint_names) {
         endpoint_url <- endpoints[[name]]
-        cat(sprintf("  %-20s %s\n", name, endpoint_url))
+
+        # Style the endpoint name
+        styled_name <- .gum_style(sprintf("  %-20s", name),
+                                   color = .gum_colors$primary,
+                                   bold = TRUE)
+
+        # Display with muted URL
+        styled_url <- .gum_style(endpoint_url, color = .gum_colors$muted)
+
+        cat(styled_name, styled_url, "\n", sep = "")
       }
     } else {
-      cat(sprintf("No endpoints available at %s\n", url))
+      .gum_warning(sprintf("No endpoints available at %s", url))
     }
 
     cat("\n")
     invisible(body)
 
   }, error = function(e) {
-    cat(sprintf("Error fetching %s:\n", url))
-    cat(sprintf("  %s\n", conditionMessage(e)))
+    .gum_error(sprintf("Error fetching %s", url))
+    cat("  ", conditionMessage(e), "\n", sep = "")
     invisible(NULL)
   })
 }
@@ -101,33 +113,36 @@ whoami <- function(base_url = "https://cramerdb.com/api/", headers = list()) {
     httr2::resp_check_status(res)
     body <- httr2::resp_body_json(res, simplifyVector = FALSE)
 
-    # Show auth status
-    cat("CramerDB Authentication Status\n")
-    cat("==============================\n\n")
+    # Show auth status with gum styling
+    .gum_header("CramerDB Authentication Status")
 
     if (!is.null(body[["authenticated"]])) {
       is_authed <- isTRUE(body[["authenticated"]])
-      auth_status <- if (is_authed) "YES" else "NO"
-      cat(sprintf("Authenticated: %s\n", auth_status))
 
-      if (!is.null(body[["user"]])) {
-        cat(sprintf("User: %s\n", body[["user"]]))
-      }
+      # Display authentication status
+      if (is_authed) {
+        .gum_kv("Authenticated", .gum_style("YES", color = .gum_colors$success, bold = TRUE))
 
-      if (!is_authed) {
-        cat("\nTo authenticate, use:\n")
-        cat("  set_token('your_token_here')\n")
+        if (!is.null(body[["user"]])) {
+          .gum_kv("User", .gum_style(body[["user"]], color = .gum_colors$primary))
+        }
+      } else {
+        .gum_kv("Authenticated", .gum_style("NO", color = .gum_colors$error, bold = TRUE))
+
+        cat("\n")
+        .gum_warning("Not authenticated")
+        cat("  To authenticate, use: ", .gum_style("set_token('your_token_here')", color = .gum_colors$primary), "\n", sep = "")
       }
     } else {
-      cat("Unable to determine authentication status\n")
+      .gum_error("Unable to determine authentication status")
     }
 
     cat("\n")
     invisible(body)
 
   }, error = function(e) {
-    cat(sprintf("Error checking authentication:\n"))
-    cat(sprintf("  %s\n", conditionMessage(e)))
+    .gum_error("Error checking authentication")
+    cat("  ", conditionMessage(e), "\n", sep = "")
     invisible(NULL)
   })
 }

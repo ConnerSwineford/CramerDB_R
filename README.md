@@ -16,25 +16,69 @@ pak::pak("ConnerSwineford/CramerDb_R")
 library(cramerdb)
 ```
 
+### 🎨 Enable Beautiful Output (Recommended!)
+
+For enhanced terminal output with colors, progress bars, and styled formatting, simply run:
+
+```r
+# Automatically installs gum for your OS
+install_gum()
+```
+
+That's it! The function detects your operating system (macOS, Linux, or Windows) and installs [gum CLI](https://github.com/charmbracelet/gum) automatically.
+
+**What you get with gum:**
+- 🎨 Color styled headers and output
+- 📊 Real-time progress bars for fetch pagination and bulk operations
+- ✓ Success/warning/error indicators
+- 🎯 Beautiful formatted tables for endpoints
+
+**Check installation:**
+```r
+check_gum()  # Verify gum is working
+```
+
+**Without gum:** The package works perfectly fine - it automatically falls back to plain text output.
+
 ## Quick Start
 
 ```r
 # 1. Set your authentication token
 set_token("your_api_token_here")
 
-# 2. Verify authentication
-whoami()
+# 2. Quick health check before running operations
+test_connection()
+# Testing CramerDB Connection
+# ──────────────────────────
+#
+#   Checking network connectivity...      ✓ OK
+#   Verifying authentication...           ✓ Authenticated
+#   User: john.doe
+#
+# ✓ Connection test passed!
 
 # 3. Explore available endpoints
 endpoints()
+# With gum installed, you'll see beautifully formatted azure blue tables
+
 endpoints("seine")
 
 # 4. Fetch data
 seine_events <- fetch("seine/event/")
+# With gum installed, you'll see progress bars for paginated results:
+# Fetching paginated data: 5 pages (~1000 records)
+# Progress [5/5] ██████████████████████████████ 100%
+# ✓ Fetched 5 pages successfully
+
 seine_hauls <- fetch("seine/haul/")
 
 # 5. Push data back
 create("seine/event/", new_events)
+# With gum installed:
+# Creating records: 150 rows
+# Creating [150/150] ██████████████████████████████ 100%
+# ✓ Created 150 records successfully
+
 update("seine/event/", updated_events)
 upsert("seine/event/", new_or_updated_events)
 ```
@@ -53,17 +97,20 @@ set_token("YOUR-API-TOKEN")
 
 This stores the token in R's session options, so you don't need to pass it with every request.
 
-### Check Authentication Status
+### Connection Testing
 
-Verify you're authenticated and see which user you're logged in as:
+Verify authentication:
 
 ```r
-whoami()
-# CramerDB Authentication Status
-# ==============================
+test_connection()
+# Testing CramerDB Connection
+# ──────────────────────────
 #
-# Authenticated: YES
-# User: john.doe
+#   Checking network connectivity...      ✓ OK
+#   Verifying authentication...           ✓ Authenticated
+#   User: john.doe
+#
+# ✓ Connection test passed!
 ```
 
 ### Retrieve Your Token
@@ -239,6 +286,89 @@ create("core/site/", sites)
 
 ---
 
+## Advanced Features
+
+### 🔒 Secure Token Storage
+
+Tokens are automatically stored in your system's secure credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service) and persist across R sessions:
+
+```r
+# First time setup
+set_token("your_api_token")
+# Token stored securely in system keyring
+# (Will auto-load in future R sessions)
+
+# Later sessions - token loads automatically
+library(cramerdb)
+whoami()  # Just works!
+
+# Clear token when needed
+clear_token()
+```
+
+**Note:** Install the `keyring` package for persistent storage: `install.packages("keyring")`
+
+### 🧪 Dry-Run Mode
+
+Preview what would be sent before actually sending it:
+
+```r
+# See what would be created without actually sending
+create("seine/event/", new_events, dry_run = TRUE)
+
+# Output shows:
+# DRY RUN: CREATE Preview
+# ──────────────────────────
+#
+# Operation: CREATE
+# Endpoint:  https://cramerdb.com/api/seine/event/
+# Records:   150
+#
+# Preview of first 3 record(s):
+# [JSON preview of records...]
+#
+# ⚠ This was a DRY RUN - no data was sent to the API
+#   Remove dry_run = TRUE to execute
+
+# Works with update() and upsert() too
+update("seine/event/", events, dry_run = TRUE)
+upsert("seine/event/", events, dry_run = TRUE)
+```
+
+### 🔇 Verbose/Quiet Control
+
+Control output verbosity for scripts vs interactive use:
+
+```r
+# Suppress all progress/styling (useful for scripts)
+options(cramerdb.verbose = FALSE)
+fetch("seine/event/")  # Silent operation
+
+# Enable verbose output
+options(cramerdb.verbose = TRUE)
+fetch("seine/event/")  # Shows progress bars and messages
+
+# Default: verbose in interactive sessions, quiet in scripts
+# (automatically detected via interactive())
+```
+
+### 🎯 Interactive Endpoint Browser
+
+Browse endpoints interactively with fuzzy search (requires gum):
+
+```r
+# Browse all endpoints with interactive search
+browse_endpoints()
+
+# Start from a specific path
+browse_endpoints(path = "seine")
+
+# Uses gum's fuzzy search to filter and select
+# Returns the selected endpoint URL
+```
+
+---
+
 ## Advanced Options
 
 ### Custom Base URL
@@ -323,16 +453,38 @@ updated_events <- fetch("seine/event/")
 
 ## Function Reference
 
+### Core Functions
+
 | Function | Description |
 |----------|-------------|
-| `set_token(token)` | Store API token for the session |
-| `get_token()` | Retrieve current token |
-| `whoami()` | Check authentication status |
-| `endpoints(path)` | List available API endpoints |
 | `fetch(url)` | Fetch data into a data frame/sf object |
 | `create(url, data)` | Create new records (POST) |
 | `update(url, data)` | Update existing records (PATCH) |
 | `upsert(url, data)` | Create or update records |
+
+### Authentication
+
+| Function | Description |
+|----------|-------------|
+| `set_token(token)` | Store API token (auto-saves to keyring) |
+| `get_token()` | Retrieve current token |
+| `clear_token()` | Remove token from keyring and session |
+| `whoami()` | Check authentication status |
+
+### Discovery & Navigation
+
+| Function | Description |
+|----------|-------------|
+| `endpoints(path)` | List available API endpoints |
+| `browse_endpoints()` | Interactive endpoint browser (requires gum) |
+| `test_connection()` | Test API connectivity and authentication |
+
+### Enhancement Tools
+
+| Function | Description |
+|----------|-------------|
+| `install_gum()` | Install gum CLI for beautiful output |
+| `check_gum()` | Verify gum installation |
 
 ---
 
