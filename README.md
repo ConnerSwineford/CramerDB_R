@@ -16,49 +16,29 @@ pak::pak("ConnerSwineford/CramerDb_R")
 library(cramerdb)
 ```
 
-### Optional: Beautiful Terminal Output with Gum
+### 🎨 Enable Beautiful Output (Recommended!)
 
-For enhanced terminal output with colors, progress bars, and styled formatting, install the [gum CLI](https://github.com/charmbracelet/gum):
+For enhanced terminal output with colors, progress bars, and styled formatting, simply run:
 
-**macOS:**
-```bash
-brew install gum
+```r
+# Automatically installs gum for your OS
+install_gum()
 ```
 
-**Linux:**
-```bash
-# Debian/Ubuntu
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
-echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
-sudo apt update && sudo apt install gum
+That's it! The function detects your operating system (macOS, Linux, or Windows) and installs [gum CLI](https://github.com/charmbracelet/gum) automatically.
 
-# Fedora/RHEL
-echo '[charm]
-name=Charm
-baseurl=https://repo.charm.sh/yum/
-enabled=1
-gpgcheck=1
-gpgkey=https://repo.charm.sh/yum/gpg.key' | sudo tee /etc/yum.repos.d/charm.repo
-sudo yum install gum
-```
-
-**Windows:**
-```powershell
-# Using Scoop
-scoop install charm-gum
-
-# Or using winget
-winget install charmbracelet.gum
-```
-
-**Without gum:** The package works perfectly fine without gum - it will automatically fall back to plain text output.
-
-**With gum:** You get:
+**What you get with gum:**
 - 🎨 Azure blue styled headers and output
 - 📊 Real-time progress bars for fetch pagination and bulk operations
 - ✓ Success/warning/error indicators with colors
 - 🎯 Beautiful formatted tables for endpoints
+
+**Check installation:**
+```r
+check_gum()  # Verify gum is working
+```
+
+**Without gum:** The package works perfectly fine - it automatically falls back to plain text output.
 
 ## Quick Start
 
@@ -395,6 +375,8 @@ updated_events <- fetch("seine/event/")
 | `create(url, data)` | Create new records (POST) |
 | `update(url, data)` | Update existing records (PATCH) |
 | `upsert(url, data)` | Create or update records |
+| `install_gum()` | Install gum CLI for beautiful output |
+| `check_gum()` | Verify gum installation |
 
 ---
 
