@@ -16,6 +16,50 @@ pak::pak("ConnerSwineford/CramerDb_R")
 library(cramerdb)
 ```
 
+### Optional: Beautiful Terminal Output with Gum
+
+For enhanced terminal output with colors, progress bars, and styled formatting, install the [gum CLI](https://github.com/charmbracelet/gum):
+
+**macOS:**
+```bash
+brew install gum
+```
+
+**Linux:**
+```bash
+# Debian/Ubuntu
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+sudo apt update && sudo apt install gum
+
+# Fedora/RHEL
+echo '[charm]
+name=Charm
+baseurl=https://repo.charm.sh/yum/
+enabled=1
+gpgcheck=1
+gpgkey=https://repo.charm.sh/yum/gpg.key' | sudo tee /etc/yum.repos.d/charm.repo
+sudo yum install gum
+```
+
+**Windows:**
+```powershell
+# Using Scoop
+scoop install charm-gum
+
+# Or using winget
+winget install charmbracelet.gum
+```
+
+**Without gum:** The package works perfectly fine without gum - it will automatically fall back to plain text output.
+
+**With gum:** You get:
+- 🎨 Azure blue styled headers and output
+- 📊 Real-time progress bars for fetch pagination and bulk operations
+- ✓ Success/warning/error indicators with colors
+- 🎯 Beautiful formatted tables for endpoints
+
 ## Quick Start
 
 ```r
@@ -24,17 +68,35 @@ set_token("your_api_token_here")
 
 # 2. Verify authentication
 whoami()
+# With gum installed, you'll see:
+# CramerDB Authentication Status
+# ──────────────────────────────
+#
+#   Authenticated:  YES
+#   User:           john.doe
 
 # 3. Explore available endpoints
 endpoints()
+# With gum installed, you'll see beautifully formatted azure blue tables
+
 endpoints("seine")
 
 # 4. Fetch data
 seine_events <- fetch("seine/event/")
+# With gum installed, you'll see progress bars for paginated results:
+# Fetching paginated data: 5 pages (~1000 records)
+# Progress [5/5] ██████████████████████████████ 100%
+# ✓ Fetched 5 pages successfully
+
 seine_hauls <- fetch("seine/haul/")
 
 # 5. Push data back
 create("seine/event/", new_events)
+# With gum installed:
+# Creating records: 150 rows
+# Creating [150/150] ██████████████████████████████ 100%
+# ✓ Created 150 records successfully
+
 update("seine/event/", updated_events)
 upsert("seine/event/", new_or_updated_events)
 ```

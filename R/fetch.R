@@ -70,12 +70,48 @@ fetch <- function(url, headers = list(), as_sf = TRUE, base_url = "https://crame
   if (is.list(body) && !is.null(body[["results"]])) {
     pages <- list(body)
     nxt <- body[["next"]]
-    while (!is.null(nxt) && is.character(nxt) && nzchar(nxt)) {
-      # For safety, also ensure later pages carry labels unless they already have it.
-      pg <- .fetch_once(nxt, headers, labels = labels)
-      pages <- c(pages, list(pg))
-      nxt <- pg[["next"]]
+
+    # Show progress if multiple pages
+    if (!is.null(nxt) && is.character(nxt) && nzchar(nxt)) {
+      page_num <- 2
+
+      # Check if we can determine total from count
+      total_count <- body[["count"]]
+      page_size <- length(body[["results"]])
+
+      if (!is.null(total_count) && page_size > 0) {
+        total_pages <- ceiling(total_count / page_size)
+        cat(.gum_style("Fetching paginated data:", color = .gum_colors$primary),
+            sprintf(" %d pages (~%d records)\n", total_pages, total_count))
+      } else {
+        cat(.gum_style("Fetching paginated data...", color = .gum_colors$primary), "\n")
+      }
+
+      while (!is.null(nxt) && is.character(nxt) && nzchar(nxt)) {
+        # Show progress for each page
+        if (!is.null(total_count) && page_size > 0) {
+          .gum_progress(page_num, total_pages, "Progress")
+        } else {
+          cat(.gum_style(sprintf("  Fetching page %d...", page_num),
+                         color = .gum_colors$muted), "\r")
+          flush.console()
+        }
+
+        # For safety, also ensure later pages carry labels unless they already have it.
+        pg <- .fetch_once(nxt, headers, labels = labels)
+        pages <- c(pages, list(pg))
+        nxt <- pg[["next"]]
+        page_num <- page_num + 1
+      }
+
+      # Final newline if we didn't show progress bar
+      if (is.null(total_count) || page_size == 0) {
+        cat("\n")
+      }
+
+      .gum_success(sprintf("Fetched %d pages successfully", length(pages)))
     }
+
     return(pages)
   }
   # single page (array/object or FeatureCollection)
