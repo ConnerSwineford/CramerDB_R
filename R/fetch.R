@@ -79,22 +79,26 @@ fetch <- function(url, headers = list(), as_sf = TRUE, base_url = "https://crame
       total_count <- body[["count"]]
       page_size <- length(body[["results"]])
 
-      if (!is.null(total_count) && page_size > 0) {
-        total_pages <- ceiling(total_count / page_size)
-        cat(.gum_style("Fetching paginated data:", color = .gum_colors$primary),
-            sprintf(" %d pages (~%d records)\n", total_pages, total_count))
-      } else {
-        cat(.gum_style("Fetching paginated data...", color = .gum_colors$primary), "\n")
+      if (.is_verbose()) {
+        if (!is.null(total_count) && page_size > 0) {
+          total_pages <- ceiling(total_count / page_size)
+          cat(.gum_style("Fetching paginated data:", color = .gum_colors$primary),
+              sprintf(" %d pages (~%d records)\n", total_pages, total_count))
+        } else {
+          cat(.gum_style("Fetching paginated data...", color = .gum_colors$primary), "\n")
+        }
       }
 
       while (!is.null(nxt) && is.character(nxt) && nzchar(nxt)) {
         # Show progress for each page
-        if (!is.null(total_count) && page_size > 0) {
-          .gum_progress(page_num, total_pages, "Progress")
-        } else {
-          cat(.gum_style(sprintf("  Fetching page %d...", page_num),
-                         color = .gum_colors$muted), "\r")
-          flush.console()
+        if (.is_verbose()) {
+          if (!is.null(total_count) && page_size > 0) {
+            .gum_progress(page_num, total_pages, "Progress")
+          } else {
+            cat(.gum_style(sprintf("  Fetching page %d...", page_num),
+                           color = .gum_colors$muted), "\r")
+            flush.console()
+          }
         }
 
         # For safety, also ensure later pages carry labels unless they already have it.
@@ -104,12 +108,14 @@ fetch <- function(url, headers = list(), as_sf = TRUE, base_url = "https://crame
         page_num <- page_num + 1
       }
 
-      # Final newline if we didn't show progress bar
-      if (is.null(total_count) || page_size == 0) {
-        cat("\n")
-      }
+      if (.is_verbose()) {
+        # Final newline if we didn't show progress bar
+        if (is.null(total_count) || page_size == 0) {
+          cat("\n")
+        }
 
-      .gum_success(sprintf("Fetched %d pages successfully", length(pages)))
+        .gum_success(sprintf("Fetched %d pages successfully", length(pages)))
+      }
     }
 
     return(pages)

@@ -2,7 +2,7 @@ Package: cramerdb
 Type: Package
 Title: Simple API → Data Frame (and PostGIS-ready) for Cramer DB
 Version: 0.1.0
-Authors@R: 
+Authors@R:
     c(person(given = "Conner", family = "Swineford", role = c("aut","cre"),
              email = "conner.swineford@fishsciences.net"))
 Description: One-call helpers to fetch paginated JSON/GeoJSON APIs into data frames or sf tibbles.
@@ -17,5 +17,7 @@ Imports:
     dplyr,
     purrr,
     sf
+Suggests:
+    keyring
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
