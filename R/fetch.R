@@ -130,6 +130,71 @@ fetch <- function(url, headers = list(), as_sf = TRUE, base_url = "https://crame
     !is.null(x[["geometry"]]) && !is.null(x[["properties"]])
 }
 
+# Check if object has a geometry field (geom or geometry)
+.has_geom_field <- function(x) {
+  is.list(x) && ("geom" %in% names(x) || "geometry" %in% names(x))
+}
+
+# Convert objects with geom/geometry fields to sf DataFrame
+.objects_with_geom_to_df <- function(objects, as_sf = TRUE) {
+  if (length(objects) == 0) return(tibble::tibble())
+
+  # Extract properties and geometries separately
+  props_list <- purrr::map(objects, function(obj) {
+    # Remove geometry fields from properties
+    obj_copy <- obj
+    geom_field <- if ("geom" %in% names(obj)) "geom" else "geometry"
+    obj_copy[[geom_field]] <- NULL
+    .nulls_to_na(obj_copy)
+  })
+
+  # Create data frame from properties
+  df <- dplyr::bind_rows(purrr::map(props_list, tibble::as_tibble))
+
+  # If as_sf is FALSE, return plain tibble
+  if (!as_sf) {
+    return(df)
+  }
+
+  # Convert geometries using sf
+  tryCatch({
+    # Build GeoJSON FeatureCollection
+    geom_field <- if ("geom" %in% names(objects[[1]])) "geom" else "geometry"
+
+    features <- purrr::map(objects, function(obj) {
+      list(
+        type = "Feature",
+        geometry = obj[[geom_field]],
+        properties = list()  # Properties already in df
+      )
+    })
+
+    fc <- list(
+      type = "FeatureCollection",
+      features = features
+    )
+
+    # Convert to GeoJSON string
+    geojson_str <- jsonlite::toJSON(fc, auto_unbox = TRUE, digits = NA)
+
+    # Read with sf
+    sf_obj <- sf::st_read(geojson_str, quiet = TRUE)
+
+    # Extract just the geometry column
+    geom_col <- sf::st_geometry(sf_obj)
+
+    # Combine with properties DataFrame
+    df$geometry <- geom_col
+    result <- sf::st_as_sf(df, sf_column_name = "geometry")
+
+    return(result)
+  }, error = function(e) {
+    # If sf conversion fails, return plain tibble
+    warning("Could not convert to sf object: ", conditionMessage(e), call. = FALSE)
+    return(df)
+  })
+}
+
 # Replace any NULLs in a (possibly nested) list with NA scalars
 .nulls_to_na <- function(x) {
   if (!is.list(x)) return(if (is.null(x)) NA else x)
@@ -181,8 +246,9 @@ fetch <- function(url, headers = list(), as_sf = TRUE, base_url = "https://crame
     #   a) list of plain objects
     #   b) a single FeatureCollection
     #   c) list of Feature objects
+    #   d) plain objects with 'geom' or 'geometry' fields
     all_results <- purrr::map(pages, ~ .x[["results"]])
-    
+
     # If results[[1]] is a FeatureCollection object
     if (is.list(all_results[[1]]) && !is.null(all_results[[1]][["type"]]) &&
         identical(all_results[[1]][["type"]], "FeatureCollection")) {
@@ -190,29 +256,34 @@ fetch <- function(url, headers = list(), as_sf = TRUE, base_url = "https://crame
         purrr::flatten()
       return(.features_to_tbl(feats, as_sf = as_sf))
     }
-    
+
     # If results is a list of Features on each page
     items <- purrr::flatten(all_results)
     if (length(items) > 0 && all(purrr::map_lgl(items, .is_feature))) {
       return(.features_to_tbl(items, as_sf = as_sf))
     }
-    
+
+    # Check if plain objects have geometry fields (geom or geometry)
+    if (length(items) > 0 && .has_geom_field(items[[1]])) {
+      return(.objects_with_geom_to_df(items, as_sf = as_sf))
+    }
+
     # Otherwise: plain objects → data frame
     rows <- purrr::map(items, function(x) {
       tibble::as_tibble(.nulls_to_na(x))
     })
-    
+
     # --- harmonize column types across pages ---------------------------
     # If a column is sometimes <character> and sometimes <logical>,
     # coerce the logical ones to character so bind_rows() is happy.
     all_cols <- unique(unlist(purrr::map(rows, names)))
-    
+
     for (nm in all_cols) {
       classes <- purrr::map_chr(rows, function(df) {
         if (!nm %in% names(df)) return(NA_character_)
         class(df[[nm]])[1]
       })
-      
+
       if ("character" %in% classes && "logical" %in% classes) {
         rows <- purrr::map(rows, function(df) {
           if (nm %in% names(df) && is.logical(df[[nm]])) {
@@ -222,10 +293,10 @@ fetch <- function(url, headers = list(), as_sf = TRUE, base_url = "https://crame
         })
       }
     }
-    
+
     return(dplyr::bind_rows(!!!rows))
   }
-  
+
   # Case 2: Single-page FeatureCollection
   if (length(pages) == 1 &&
       is.list(pages[[1]]) &&
@@ -233,7 +304,7 @@ fetch <- function(url, headers = list(), as_sf = TRUE, base_url = "https://crame
     feats <- pages[[1]][["features"]] %||% list()
     return(.features_to_tbl(feats, as_sf = as_sf))
   }
-  
+
   # Case 3: Single-page array (Feature list or plain list)
   if (length(pages) == 1 && is.list(pages[[1]]) &&
       (is.null(names(pages[[1]])) || all(names(pages[[1]]) == ""))) {
@@ -241,10 +312,16 @@ fetch <- function(url, headers = list(), as_sf = TRUE, base_url = "https://crame
     if (length(items) > 0 && all(purrr::map_lgl(items, .is_feature))) {
       return(.features_to_tbl(items, as_sf = as_sf))
     }
+
+    # Check if plain objects have geometry fields
+    if (length(items) > 0 && .has_geom_field(items[[1]])) {
+      return(.objects_with_geom_to_df(items, as_sf = as_sf))
+    }
+
     rows <- purrr::map(items, tibble::as_tibble)
     return(dplyr::bind_rows(!!!rows))
   }
-  
+
   # Case 4: Single object → tibble(1 row)
   tibble::as_tibble(pages[[1]])
 }
