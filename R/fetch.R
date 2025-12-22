@@ -230,10 +230,17 @@ fetch <- function(url, headers = list(), as_sf = TRUE, base_url = "https://crame
 
   # If we have lon/lat and want sf, promote to sf and drop helper cols
   if (as_sf && all(c(".lon", ".lat") %in% names(out))) {
-    sfc <- sf::st_sfc(purrr::pmap(out[, c(".lon", ".lat")], ~ sf::st_point(c(..1, ..2))), crs = 4326)
-    out$geom <- sfc
-    out <- dplyr::select(out, -".lon", -".lat")
-    out <- sf::st_as_sf(out, sf_column_name = "geom", crs = 4326)
+    tryCatch({
+      sfc <- sf::st_sfc(purrr::pmap(out[, c(".lon", ".lat")], ~ sf::st_point(c(..1, ..2))), crs = 4326)
+      out$geom <- sfc
+      out <- dplyr::select(out, -".lon", -".lat")
+      out <- sf::st_as_sf(out, sf_column_name = "geom", crs = 4326)
+    }, error = function(e) {
+      # If sf conversion fails, keep as tibble with lon/lat columns
+      warning("Could not convert to sf object: ", conditionMessage(e),
+              "\nReturning tibble with .lon and .lat columns instead.", call. = FALSE)
+      # out already exists from above, just return it with lon/lat
+    })
   }
   out
 }
