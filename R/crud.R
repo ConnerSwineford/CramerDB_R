@@ -224,8 +224,8 @@ upsert <- function(url, data, headers = list(), id_col = "id",
   rows <- split(df, seq_len(nrow(df)))
   purrr::map(rows, function(x) {
     x <- lapply(x, function(v) if (is.na(v)) NULL else v)
-    # simplify 1-row data.frame to list of scalars
-    purrr::list_flatten(unname(x))
+    # simplify 1-row data.frame to named list of scalars
+    purrr::list_flatten(x)
   })
 }
 
@@ -257,15 +257,27 @@ upsert <- function(url, data, headers = list(), id_col = "id",
   req <- .add_headers(req, headers)
   req <- httr2::req_method(req, method)
   # jsonlite: NAs → null; scalar lists → unboxed
-  req <- httr2::req_body_json(req, body = body, auto_unbox = TRUE, digits = NA, null = "null")
+  req <- httr2::req_body_json(req, data = body, auto_unbox = TRUE, digits = NA, null = "null")
+  # Don't throw on HTTP errors - we'll handle them ourselves
+  req <- httr2::req_error(req, is_error = function(resp) FALSE)
   res <- httr2::req_perform(req)
+  status <- httr2::resp_status(res)
   # 2xx okay
-  if (httr2::resp_status(res) >= 200 && httr2::resp_status(res) < 300) return(TRUE)
+  if (status >= 200 && status < 300) return(TRUE)
   # Pass through 404 to allow upsert fallback
-  if (httr2::resp_status(res) == 404) return(FALSE)
-  # Throw on other errors with any server message
-  httr2::resp_check_status(res)
-  TRUE
+  if (status == 404) return(FALSE)
+  # Extract server error message for better debugging
+
+  err_body <- tryCatch(
+    httr2::resp_body_json(res, simplifyVector = TRUE),
+    error = function(e) httr2::resp_body_string(res)
+  )
+  err_msg <- if (is.list(err_body)) {
+    paste(names(err_body), unlist(err_body), sep = ": ", collapse = "\n  ")
+  } else {
+    as.character(err_body)
+  }
+  stop(sprintf("HTTP %d %s\n  %s", status, httr2::resp_status_desc(res), err_msg), call. = FALSE)
 }
 
 .post_one  <- function(url, row, headers, style) {

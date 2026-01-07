@@ -195,10 +195,19 @@ fetch <- function(url, headers = list(), as_sf = TRUE, base_url = "https://crame
   })
 }
 
-# Replace any NULLs in a (possibly nested) list with NA scalars
+# Replace NULLs and empty lists with NA; wrap multi-element vectors as list-columns
 .nulls_to_na <- function(x) {
   if (!is.list(x)) return(if (is.null(x)) NA else x)
-  purrr::modify(x, ~ if (is.null(.x)) NA else .x)
+  purrr::imap(x, function(val, nm) {
+    # NULL → NA
+    if (is.null(val)) return(NA)
+    # Empty list/vector → NA
+    if (length(val) == 0) return(NA)
+    # Multi-element list/vector → wrap in list() for tibble list-column
+    if (is.list(val) || length(val) > 1) return(list(val))
+    # Scalar stays as-is
+    val
+  })
 }
 
 # Convert Feature list → tibble; attach sf if coordinates exist
