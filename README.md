@@ -79,13 +79,11 @@ test_connection()
 
 # 3. Explore available endpoints
 endpoints()
-# With gum installed, you'll see beautifully formatted azure blue tables
 
 endpoints("seine")
 
 # 4. Fetch data
 seine_events <- fetch("seine/event/")
-# With gum installed, you'll see progress bars for paginated results:
 # Fetching paginated data: 5 pages (~1000 records)
 # Progress [5/5] ██████████████████████████████ 100%
 # ✓ Fetched 5 pages successfully
@@ -94,7 +92,6 @@ seine_hauls <- fetch("seine/haul/")
 
 # 5. Push data back
 create("seine/event/", new_events)
-# With gum installed:
 # Creating records: 150 rows
 # Creating [150/150] ██████████████████████████████ 100%
 # ✓ Created 150 records successfully
@@ -365,21 +362,6 @@ fetch("seine/event/")  # Shows progress bars and messages
 
 # Default: verbose in interactive sessions, quiet in scripts
 # (automatically detected via interactive())
-```
-
-### 🎯 Interactive Endpoint Browser
-
-Browse endpoints interactively with fuzzy search (requires gum):
-
-```r
-# Browse all endpoints with interactive search
-browse_endpoints()
-
-# Start from a specific path
-browse_endpoints(path = "seine")
-
-# Uses gum's fuzzy search to filter and select
-# Returns the selected endpoint URL
 ```
 
 ---
