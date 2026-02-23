@@ -1,29 +1,534 @@
 # cramerdb
 
-**cramerdb** lets staff pull JSON/GeoJSON from our APIs into a data frame (or `sf` tibble) with one call, and write back via API (create, update, upsert).
+**cramerdb** is an R package for interacting with the CramerDB API. It provides simple functions to explore endpoints, fetch data into data frames or spatial objects (sf), and push data back to the database.
 
-## Install
+## Installation
 
-### Option A — simple (source build)
 ```r
-install.packages("pak")         # once
-pak::pak("ORG_OR_USER/cramerdb")
-# or: remotes::install_github("ORG_OR_USER/cramerdb")
+# One-time: install pak if you don't have it
+options(pkgType = "binary")
+install.packages("pak", type = "binary")
+
+# Install cramerdb from GitHub
+pak::pak("ConnerSwineford/CramerDb_R")
+
+# Load the package
 library(cramerdb)
+```
 
-# 1) Read (auto-paginates; returns tibble or sf)
-visits <- fetch("http://172.18.10.103:8000/api/veg-rec/visit/")
-plots  <- fetch("http://172.18.10.103:8000/api/veg-rec/plot/")  # sf with geom
+### 🎨 Enable Beautiful Output (Recommended!)
 
-# 2) Write via API (no DB connection)
-tok <- "Token XXXXX"  # ask a lead for yours
-hdr <- list(Authorization = tok)
+For enhanced terminal output with colors, progress bars, and styled formatting, simply run:
 
-# create new rows
-create("http://172.18.10.103:8000/api/veg-rec/visit/", visits_new, headers = hdr)
+```r
+# Automatically installs gum for your OS
+install_gum()
+```
 
-# update existing rows by id
-update("http://172.18.10.103:8000/api/veg-rec/visit/", visits_update, headers = hdr)
+That's it! The function detects your operating system (macOS, Linux, or Windows) and installs [gum CLI](https://github.com/charmbracelet/gum) automatically.
 
-# upsert (update if id exists, else create)
-upsert("http://172.18.10.103:8000/api/veg-rec/visit/", visits_mixed, headers = hdr)
+**What you get with gum:**
+- 🎨 Color styled headers and output
+- 📊 Real-time progress bars for fetch pagination and bulk operations
+- ✓ Success/warning/error indicators
+- 🎯 Beautiful formatted tables for endpoints
+
+**Check installation:**
+```r
+check_gum()  # Verify gum is working
+```
+
+**Without gum:** The package works perfectly fine - it automatically falls back to plain text output.
+
+## Quick Start
+
+```r
+# 1. Set your authentication token
+set_token("your_api_token_here")
+
+# 2. Quick health check before running operations
+test_connection()
+# Testing CramerDB Connection
+# ──────────────────────────
+#
+#   Checking network connectivity...      ✓ OK
+#   Verifying authentication...           ✓ Authenticated
+#   User: john.doe
+#
+# ✓ Connection test passed!
+
+# 3. Explore available endpoints
+endpoints()
+# With gum installed, you'll see beautifully formatted azure blue tables
+
+endpoints("seine")
+
+# 4. Fetch data
+seine_events <- fetch("seine/event/")
+# With gum installed, you'll see progress bars for paginated results:
+# Fetching paginated data: 5 pages (~1000 records)
+# Progress [5/5] ██████████████████████████████ 100%
+# ✓ Fetched 5 pages successfully
+
+seine_hauls <- fetch("seine/haul/")
+
+# 5. Push data back
+create("seine/event/", new_events)
+# With gum installed:
+# Creating records: 150 rows
+# Creating [150/150] ██████████████████████████████ 100%
+# ✓ Created 150 records successfully
+
+update("seine/event/", updated_events)
+upsert("seine/event/", new_or_updated_events)
+```
+
+---
+
+## Authentication
+
+### Set Your Token
+
+Get your API token from the CramerDB web interface (https://cramerdb.com/admin/user/), then store it for the session:
+
+```r
+set_token("YOUR-API-TOKEN")
+```
+
+This stores the token in R's session options, so you don't need to pass it with every request.
+
+### Connection Testing
+
+Verify authentication:
+
+```r
+test_connection()
+# Testing CramerDB Connection
+# ──────────────────────────
+#
+#   Checking network connectivity...      ✓ OK
+#   Verifying authentication...           ✓ Authenticated
+#   User: john.doe
+#
+# ✓ Connection test passed!
+```
+
+### Retrieve Your Token
+
+To see your current token (for debugging):
+
+```r
+get_token()
+# [1] "YOUR-API-TOKEN"
+```
+
+---
+
+## Exploring Endpoints
+
+### List Available Endpoints
+
+The `endpoints()` function helps you navigate the API structure:
+
+```r
+# List top-level endpoints
+endpoints()
+# Available endpoints at https://cramerdb.com/api/:
+#   biology              https://cramerdb.com/api/biology/
+#   core                 https://cramerdb.com/api/core/
+#   habitatbreak         https://cramerdb.com/api/habitatbreak/
+#   lab                  https://cramerdb.com/api/lab/
+#   logger               https://cramerdb.com/api/logger/
+#   permitting           https://cramerdb.com/api/permitting/
+#   seine                https://cramerdb.com/api/seine/
+#   snorkel              https://cramerdb.com/api/snorkel/
+#   stranding            https://cramerdb.com/api/stranding/
+#   tagging              https://cramerdb.com/api/tagging/
+#   veg-rec              https://cramerdb.com/api/veg-rec/
+
+# Drill down into specific sections
+endpoints("seine")
+# Available endpoints at https://cramerdb.com/api/seine/:
+#   event                https://cramerdb.com/api/seine/event/
+#   haul                 https://cramerdb.com/api/seine/haul/
+#   net                  https://cramerdb.com/api/seine/net/
+#   sample               https://cramerdb.com/api/seine/sample/
+
+endpoints("biology")
+endpoints("lab")
+```
+
+### Discover Fields
+
+Use `fields()` to see what columns an endpoint returns:
+
+```r
+fields("seine/event/")
+# Fields at https://cramerdb.com/api/seine/event/:
+#   id                        string
+#   project                   field (required)
+#   survey                    field (required)
+#   subsite                   field
+#   event_date                date (required)
+#   ...
+```
+
+---
+
+## Fetching Data (Pull)
+
+The `fetch()` function retrieves data from the API and converts it into R data frames or spatial objects.
+
+### Basic Fetch
+
+Use relative paths (automatically prepends `https://cramerdb.com/api/`):
+
+```r
+# Fetch seine events
+events <- fetch("seine/event/")
+
+# Fetch seine hauls
+hauls <- fetch("seine/haul/")
+
+# Fetch biology data
+fish <- fetch("biology/fish/")
+
+# Fetch lab samples
+samples <- fetch("lab/sample/")
+```
+
+### Fetch with Full URLs
+
+You can still use full URLs if needed:
+
+```r
+events <- fetch("https://cramerdb.com/api/seine/event/")
+```
+
+### Spatial Data (GeoJSON)
+
+If the endpoint returns GeoJSON with point coordinates, `fetch()` automatically returns an `sf` spatial object:
+
+```r
+# Returns an sf tibble with geometry column
+sites <- fetch("core/site/")
+
+# Disable spatial conversion if you just want a regular data frame
+sites_df <- fetch("core/site/", as_sf = FALSE)
+```
+
+### Pagination
+
+The `fetch()` function automatically handles pagination, fetching all pages and combining them into a single data frame:
+
+```r
+# Fetches all pages automatically
+all_events <- fetch("seine/event/")
+```
+
+---
+
+## Pushing Data (Create/Update)
+
+### Create New Records
+
+Use `create()` to add new records via POST:
+
+```r
+# Create a data frame with new records
+new_events <- data.frame(
+  event_date = c("2025-01-15", "2025-01-16"),
+  location = c("Site A", "Site B"),
+  notes = c("Morning survey", "Evening survey")
+)
+
+# Push to the API
+create("seine/event/", new_events)
+```
+
+### Update Existing Records
+
+Use `update()` to modify existing records via PATCH. Requires an `id` column:
+
+```r
+# Fetch existing data
+events <- fetch("seine/event/")
+
+# Modify some records
+events$notes[1] <- "Updated notes"
+
+# Push updates back
+update("seine/event/", events)
+```
+
+### Upsert (Create or Update)
+
+Use `upsert()` to update records if they exist (based on `id`), or create them if they don't:
+
+```r
+# Mix of existing and new records
+mixed_events <- data.frame(
+  id = c(1, 2, NA, NA),  # IDs 1,2 exist; NA will create new
+  event_date = c("2025-01-15", "2025-01-16", "2025-01-17", "2025-01-18"),
+  notes = c("Updated", "Updated", "New", "New")
+)
+
+# Updates records 1 & 2, creates two new records
+upsert("seine/event/", mixed_events)
+```
+
+### Spatial Data (GeoJSON)
+
+For endpoints that accept GeoJSON, pass an `sf` object and it will automatically format as GeoJSON Features:
+
+```r
+library(sf)
+
+# Create spatial data
+sites <- st_as_sf(
+  data.frame(
+    name = c("Site A", "Site B"),
+    lon = c(-121.5, -121.6),
+    lat = c(38.5, 38.6)
+  ),
+  coords = c("lon", "lat"),
+  crs = 4326
+)
+
+# Push spatial data
+create("core/site/", sites)
+```
+
+---
+
+## Advanced Features
+
+### 🔒 Secure Token Storage
+
+Tokens are automatically stored in your system's secure credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service) and persist across R sessions:
+
+```r
+# First time setup
+set_token("your_api_token")
+# Token stored securely in system keyring
+# (Will auto-load in future R sessions)
+
+# Later sessions - token loads automatically
+library(cramerdb)
+whoami()  # Just works!
+
+# Clear token when needed
+clear_token()
+```
+
+**Note:** Install the `keyring` package for persistent storage: `install.packages("keyring")`
+
+### 🧪 Dry-Run Mode
+
+Preview what would be sent before actually sending it:
+
+```r
+# See what would be created without actually sending
+create("seine/event/", new_events, dry_run = TRUE)
+
+# Output shows:
+# DRY RUN: CREATE Preview
+# ──────────────────────────
+#
+# Operation: CREATE
+# Endpoint:  https://cramerdb.com/api/seine/event/
+# Records:   150
+#
+# Preview of first 3 record(s):
+# [JSON preview of records...]
+#
+# ⚠ This was a DRY RUN - no data was sent to the API
+#   Remove dry_run = TRUE to execute
+
+# Works with update() and upsert() too
+update("seine/event/", events, dry_run = TRUE)
+upsert("seine/event/", events, dry_run = TRUE)
+```
+
+### 🔇 Verbose/Quiet Control
+
+Control output verbosity for scripts vs interactive use:
+
+```r
+# Suppress all progress/styling (useful for scripts)
+options(cramerdb.verbose = FALSE)
+fetch("seine/event/")  # Silent operation
+
+# Enable verbose output
+options(cramerdb.verbose = TRUE)
+fetch("seine/event/")  # Shows progress bars and messages
+
+# Default: verbose in interactive sessions, quiet in scripts
+# (automatically detected via interactive())
+```
+
+### 🎯 Interactive Endpoint Browser
+
+Browse endpoints interactively with fuzzy search (requires gum):
+
+```r
+# Browse all endpoints with interactive search
+browse_endpoints()
+
+# Start from a specific path
+browse_endpoints(path = "seine")
+
+# Uses gum's fuzzy search to filter and select
+# Returns the selected endpoint URL
+```
+
+---
+
+## Advanced Options
+
+### Custom Base URL
+
+If you need to use a different API base URL:
+
+```r
+fetch("seine/event/", base_url = "https://staging.cramerdb.com/api/")
+create("seine/event/", data, base_url = "https://staging.cramerdb.com/api/")
+```
+
+### Custom ID Column
+
+By default, CRUD operations use the `id` column. To use a different column:
+
+```r
+update("seine/event/", events, id_col = "event_id")
+upsert("seine/event/", events, id_col = "event_id")
+```
+
+### Manual Headers
+
+Override the stored token with custom headers:
+
+```r
+custom_headers <- list(Authorization = "Token different_token_here")
+fetch("seine/event/", headers = custom_headers)
+create("seine/event/", data, headers = custom_headers)
+```
+
+### Chunk Size for Batch Operations
+
+Control how many records are sent per batch (default: 200):
+
+```r
+# Send 50 records at a time
+create("seine/event/", large_dataset, chunk_size = 50)
+```
+
+---
+
+## Complete Workflow Example
+
+```r
+library(cramerdb)
+library(dplyr)
+
+# 1. Authenticate
+set_token("your_token_here")
+whoami()
+
+# 2. Explore the API
+endpoints()
+endpoints("seine")
+
+# 3. Discover fields for an endpoint
+fields("seine/event/")
+
+# 4. Fetch existing data (optionally filtered)
+seine_events <- fetch("seine/event/")
+seine_events_hw <- fetch("seine/event/", query = list(project = "Hallwood"))
+seine_hauls <- fetch("seine/haul/")
+
+# 5. Analyze/modify data
+seine_events <- seine_events %>%
+  filter(event_date > "2024-01-01") %>%
+  mutate(notes = paste(notes, "- Reviewed"))
+
+# 6. Update records
+update("seine/event/", seine_events)
+
+# 7. Create new records
+new_hauls <- data.frame(
+  event_id = 123,
+  haul_number = c(1, 2, 3),
+  start_time = c("08:00", "10:00", "12:00")
+)
+
+create("seine/haul/", new_hauls)
+
+# 8. Verify changes
+updated_events <- fetch("seine/event/")
+```
+
+---
+
+## Function Reference
+
+### Core Functions
+
+| Function | Description |
+|----------|-------------|
+| `fetch(url)` | Fetch data into a data frame/sf object |
+| `create(url, data)` | Create new records (POST) |
+| `update(url, data)` | Update existing records (PATCH) |
+| `upsert(url, data)` | Create or update records |
+
+### Authentication
+
+| Function | Description |
+|----------|-------------|
+| `set_token(token)` | Store API token (auto-saves to keyring) |
+| `get_token()` | Retrieve current token |
+| `clear_token()` | Remove token from keyring and session |
+| `whoami()` | Check authentication status |
+
+### Discovery & Navigation
+
+| Function | Description |
+|----------|-------------|
+| `endpoints(path)` | List available API endpoints |
+| `fields(path)` | List field names at an endpoint |
+| `browse_endpoints()` | Interactive endpoint browser (requires gum) |
+| `test_connection()` | Test API connectivity and authentication |
+
+### Enhancement Tools
+
+| Function | Description |
+|----------|-------------|
+| `install_gum()` | Install gum CLI for beautiful output |
+| `check_gum()` | Verify gum installation |
+
+---
+
+## Troubleshooting
+
+### "Unexpected content type text/html"
+
+This error occurs when not authenticated. Make sure to:
+1. Set your token: `set_token("your_token")`
+2. Verify authentication: `whoami()`
+
+### "Failed to parse URL: Bad scheme"
+
+Make sure to reload the package after installation:
+```r
+devtools::load_all()  # if developing
+# or
+library(cramerdb)  # after restarting R
+```
+
+### "HTTP 401 Unauthorized"
+
+Your token may be invalid or expired. Get a new token from the CramerDB web interface and set it again:
+```r
+set_token("new_token_here")
+```
+
