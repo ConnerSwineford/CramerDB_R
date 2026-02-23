@@ -16,7 +16,27 @@ pak::pak("ConnerSwineford/CramerDb_R")
 library(cramerdb)
 ```
 
-### 🎨 Enable Beautiful Output (Recommended!)
+### 🔒 Secure Token Storage
+
+Tokens are automatically stored in your system's secure credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service) and persist across R sessions:
+
+```r
+# First time setup
+set_token("your_api_token")
+# Token stored securely in system keyring
+# (Will auto-load in future R sessions)
+
+# Later sessions - token loads automatically
+library(cramerdb)
+whoami()  # Just works!
+
+# Clear token when needed
+clear_token()
+```
+
+**Note:** Install the `keyring` package for persistent storage: `install.packages("keyring")`
+
+### 🎨 Enable Beautiful Output (Optional)
 
 For enhanced terminal output with colors, progress bars, and styled formatting, simply run:
 
@@ -302,26 +322,6 @@ create("core/site/", sites)
 ---
 
 ## Advanced Features
-
-### 🔒 Secure Token Storage
-
-Tokens are automatically stored in your system's secure credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service) and persist across R sessions:
-
-```r
-# First time setup
-set_token("your_api_token")
-# Token stored securely in system keyring
-# (Will auto-load in future R sessions)
-
-# Later sessions - token loads automatically
-library(cramerdb)
-whoami()  # Just works!
-
-# Clear token when needed
-clear_token()
-```
-
-**Note:** Install the `keyring` package for persistent storage: `install.packages("keyring")`
 
 ### 🧪 Dry-Run Mode
 
